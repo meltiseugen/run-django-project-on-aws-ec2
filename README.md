@@ -1,4 +1,5 @@
-# run-django-project-on-aws-ec2
+This is a 10 step tutorial on how to run you Django application on an AWS EC2 instance.
+In this walkthrough, we will learn how to clone a Django application and deploy it with NginX and Gunicorn.
 
 # 1. Create an AWS account and an EC2 instance
 For this step you can find a lot of tutorials online. You can just google it.
@@ -45,3 +46,45 @@ For NginX, we follow the next steps:
 * `sudo apt-get install nginx` - will install NginX
 * Open file `sudo vim /etc/nginx/nginx.conf` and change the first line to `user ubuntu ubuntu;`
 * Open file `/etc/nginx/sites-enabled/default`
+* Edit the server object like this:
+```
+server {A
+
+  server_name 127.0.0.1 yourhost@example.com;
+  access_log /var/log/nginx/domain-access.log;
+  error_log  /var/log/nginx/nginx-error.log info;
+
+  location / {
+    proxy_pass_header Server;
+    proxy_set_header Host $http_host;
+    proxy_redirect off;
+    proxy_set_header X-Forwarded-For  $remote_addr;
+    proxy_set_header X-Scheme $scheme;
+    proxy_connect_timeout 10;
+    proxy_read_timeout 10;
+
+    # This line is important as it tells nginx to channel all requests to port 8000.
+    # We will later run our wsgi application on this port using gunicorn.
+    proxy_pass http://127.0.0.1:8000/;
+  }
+}
+```
+* `sudo service nginx start` - will start the NginX server
+Now if you open a browser and type `http://<instance host name>` you should see NginX welcome page
+
+# 8. Add Gunicorn to run our WSGI application
+In order to run our Django application we need a Python WSGI HTTP Server, and for this we will use Gunicorn
+Follow the next steps to install and configure Gunicorn:
+* `pip install gunicorn` - this will install Gunicorn 
+* `cd <directory with wsgi.py>` - change the working directory where the wsgi.py file is.
+* `gunicorn wsgi -b 127.0.0.1:8000 --pid /tmp/gunicorn.pid --daemon` - this will bind Gunicorn to out Django server running on `127.0.0.1:8000` and `--deamon` will run the Gunicorn service in the background
+
+# 9. Putting it all together
+To fire everything up, we need to do the following:
+* `python manage.py runserver` - this will start our Djnago application
+* `gunicorn wsgi -b 127.0.0.1:8000 --pid /tmp/gunicorn.pid --daemon` - start Gunicorn, if not already started
+* `sudo service nginx start` - start NginX if not already started
+
+# 10. Conclusion
+Now if you open a browser and type the following `http://<instance host name>` you should see the Django welcome page. :)
+Note: Consider assigning an Elastic IP to your instance such that it will not change IP and hostname each time you restart it.
