@@ -44,11 +44,12 @@ In order to not add your service's port in the URL, we will add NginX and Gunico
 
 For NginX, we follow the next steps:
 * `sudo apt-get install nginx` - will install NginX
-* Open file `sudo vim /etc/nginx/nginx.conf` and change the first line to `user ubuntu ubuntu;`
-* Open file `/etc/nginx/sites-enabled/default`
+* Open file `sudo nano /etc/nginx/nginx.conf` and change the first line to `user ubuntu;`
+* Open file `sudo nano /etc/nginx/sites-enabled/default`
 * Edit the server object like this:
+At the end of the file you will  find a commented out `server`. Uncomment that one and change to this: 
 ```
-server {A
+server {
 
   server_name 127.0.0.1 yourhost@example.com;
   access_log /var/log/nginx/domain-access.log;
