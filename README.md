@@ -30,8 +30,7 @@ I recomment creating some directories in the home folder like `mkdir -p git/<git
 Now to clone the project with `git clone ssh@<repo location>`.
 
 # 6. Test the service by exposing a custom port number
-Assuming we will run our service on port `:8000`, we first have to go to the AWS Console and edit the `inbound rules` of out instance.
-There we define a new rule with `custom TCP` and port number `8000` and save it.
+Assuming we will run our service on port `:8000`, we first have to go to the AWS Console, go to `Security Groups`, and edit the `inbound rules` of out instance. There we define a new rule with `custom TCP` and port number `8000` and save it.
 
 Since we try a django project, we need to change the `ALLOWED_HOSTS` variable from `settings.py`. DON'T WORRY, after we will add NginX and Gunicorn, this will no longer be necessary.
 * Change `ALLOWED_HOSTS = []` to `ALLOWED_HOSTS = ['<Instance IP>', '<Instance Hostname>']`
@@ -41,6 +40,8 @@ Now if you open a browser and type `http://<instance host name>:8000`, you shoul
 
 # 7. Add NginX and Gunicorn in order to redirect all incomming requests on port 80 (HTTP) to your service on port 8000
 In order to not add your service's port in the URL, we will add NginX and Gunicorn that will redirect all the traffic comming on port 80 (which is the default port for HTTP calls) to our running Django service on port 8000.
+
+First of all we need to tell out AWS instance to allow incoming connections via HTTP (port 80). To do this, we head back to the AWS console, go to `Security Groups`, and here we edit the `inbound rules`. Add a new `HTTP` rule with `allow any`.
 
 For NginX, we follow the next steps:
 * `sudo apt-get install nginx` - will install NginX
@@ -79,6 +80,9 @@ Follow the next steps to install and configure Gunicorn:
 * `pip install gunicorn` - this will install Gunicorn 
 * `cd <directory with wsgi.py>` - change the working directory where the wsgi.py file is.
 * `gunicorn wsgi -b 127.0.0.1:8000 --pid /tmp/gunicorn.pid --daemon` - this will bind Gunicorn to out Django server running on `127.0.0.1:8000` and `--deamon` will run the Gunicorn service in the background
+
+# 9. Add HTTPS connections
+In progress
 
 # 9. Putting it all together
 To fire everything up, we need to do the following:
