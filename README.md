@@ -143,4 +143,5 @@ To fire everything up, we need to do the following:
 
 ## 11. Conclusion
 Now if you open a browser and type the following `http://<instance host name>` OR `https://<instance host name>` you should see the Django welcome page. :)
+
 Note: Consider assigning an Elastic IP to your instance such that it will not change IP and hostname each time you restart it.
