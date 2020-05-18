@@ -16,8 +16,8 @@ Add this generic user to your repo with `READ` access, this way it will only be 
 First we need to connect to out instance. We use the file (.pem) that was generated for us when we created the instance.
 Using the command `ssh -i <path to your .pem file> ubuntu@<your instance's IP/Hostname>` we have accessed the instance.
 Now to generate the public key, use these commands:
-* `ssh-keygen -t rsa` - will generate a public key for us in ` ~/.ssh/id_rsa.pub`
-* `cat ~/.ssh/id_rsa.pub` - will display the contents of the public key file. Copy the contents
+* `$ssh-keygen -t rsa` - will generate a public key for us in ` ~/.ssh/id_rsa.pub`
+* `$cat ~/.ssh/id_rsa.pub` - will display the contents of the public key file. Copy the contents
 
 # 4. Add the public key to the generic EC2 user
 Go to the git service provider, log in with the generic EC2 user. 
@@ -44,9 +44,9 @@ In order to not add your service's port in the URL, we will add NginX and Gunico
 First of all we need to tell out AWS instance to allow incoming connections via HTTP (port 80). To do this, we head back to the AWS console, go to `Security Groups`, and here we edit the `inbound rules`. Add a new `HTTP` rule with `allow any`.
 
 For NginX, we follow the next steps:
-* `sudo apt-get install nginx` - will install NginX
-* Open file `sudo nano /etc/nginx/nginx.conf` and change the first line to `user ubuntu;`
-* Open file `sudo nano /etc/nginx/sites-enabled/default`
+* `$sudo apt-get install nginx` - will install NginX
+* Open file `$sudo nano /etc/nginx/nginx.conf` and change the first line to `user ubuntu;`
+* Open file `$sudo nano /etc/nginx/sites-enabled/default`
 * Edit the server object like this:
 At the end of the file you will  find a commented out `server`. Uncomment that one and change to this: 
 ```
@@ -71,25 +71,73 @@ server {
   }
 }
 ```
-* `sudo service nginx start` - will start the NginX server
+* `$sudo service nginx start` - will start the NginX server
 Now if you open a browser and type `http://<instance host name>` you should see NginX welcome page
 
 # 8. Add Gunicorn to run our WSGI application
 In order to run our Django application we need a Python WSGI HTTP Server, and for this we will use Gunicorn
 Follow the next steps to install and configure Gunicorn:
-* `pip install gunicorn` - this will install Gunicorn 
-* `cd <directory with wsgi.py>` - change the working directory where the wsgi.py file is.
-* `gunicorn wsgi -b 127.0.0.1:8000 --pid /tmp/gunicorn.pid --daemon` - this will bind Gunicorn to out Django server running on `127.0.0.1:8000` and `--deamon` will run the Gunicorn service in the background
+* `$pip install gunicorn` - this will install Gunicorn 
+* `$cd <directory with wsgi.py>` - change the working directory where the wsgi.py file is.
+* `$gunicorn wsgi -b 127.0.0.1:8000 --pid /tmp/gunicorn.pid --daemon` - this will bind Gunicorn to out Django server running on `127.0.0.1:8000` and `--deamon` will run the Gunicorn service in the background
 
-# 9. Add HTTPS connections
-In progress
+If you are not interested in configuring HTTPS connections, then skip to step `Putting it all together`.
 
-# 9. Putting it all together
+# 9. Configure HTTPS connections
+For accepting HTTPS connections to our instance we need to perform some aditional steps.
+## 9.1 Generate the SSL cetificats
+First of all, create and change the working directory to
+* `$mkdir -p /etc/nginx/certs && cd /etc/nginx/certs `
+
+Then execute the following commands:
+```
+# generate CA key and certificate
+$sudo openssl genrsa -des3 -out ca.key 4096
+$sudo openssl req -new -x509 -days 365 -key ca.key -out ca.crt
+
+# generate server key
+# generate CSR (certificate sign request) to obtain certificate
+$sudo openssl genrsa -des3 -out server.key 1024
+$sudo openssl req -new -key server.key -out server.csr
+
+# sign server CSR with CA certificate and key
+$sudo openssl x509 -req -days 365 -in server.csr -CA ca.crt -CAkey ca.key -set_serial 01 -out server.crt
+
+# remove pass phase from server key
+$sudo openssl rsa -in server.key -out temp.key
+$sudo rm server.key
+$mv temp.key server.key
+```
+
+## 9.2 Configure NginX with to listen on HTTPS requests
+Open file `$sudo nano /etc/nginx/sites-enabled/default` and add a new server object like this at the end:
+```
+server {
+    listen          443 ssl;
+    server_name     yourhost@example.com;
+    
+    ssl_certificate     /etc/nginx/certs/server.crt;
+    ssl_certificate_key /etc/nginx/certs/server.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000/;
+    }
+}
+```
+
+## 9.3 Configure the EC2 instance to allow HTTPS connections
+For this we need to tell out AWS instance to allow incoming connections via HTTPS (port 443). To achieve this, we head back to the AWS console, go to `Security Groups`, and here we edit the `inbound rules`. Add a new `HTTPS` rule with `allow any`.
+
+## 9.4 Test the connections 
+Run the command `$sudo service nginx restart` - will restart the NginX server
+Now if you open a browser and type `https://<instance host name>` you should see NginX welcome page
+
+# 10. Putting it all together
 To fire everything up, we need to do the following:
 * `python manage.py runserver` - this will start our Djnago application
 * `gunicorn wsgi -b 127.0.0.1:8000 --pid /tmp/gunicorn.pid --daemon` - start Gunicorn, if not already started
 * `sudo service nginx start` - start NginX if not already started
 
-# 10. Conclusion
-Now if you open a browser and type the following `http://<instance host name>` you should see the Django welcome page. :)
+# 11. Conclusion
+Now if you open a browser and type the following `http://<instance host name>` OR `https://<instance host name>` you should see the Django welcome page. :)
 Note: Consider assigning an Elastic IP to your instance such that it will not change IP and hostname each time you restart it.
